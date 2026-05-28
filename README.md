@@ -14,8 +14,9 @@ bands) is not marked as away.
 ## Usage
 
 ### Installation
-Download a package from the [releases][releases] page, and install it either by uploading it in LuCi (System > Software)
-or running `opkg install <file>` from a shell.
+
+- **25.12 and newer:** Download a package **with the** `.apk` **file extension** from the [releases][releases] page, and install it by running `apk add --allow-untrusted <file>` from a shell. Installation from the web interface is not currently possible.
+- **Older than 25.12:** Download a package **with the** `.ipk` **file extension** from the [releases][releases] page, and install it either by uploading it in LuCi (System > Software) or running `opkg install <file>` from a shell.
 
 ### Configuration
 Once the package is installed, you must update the configuration in `/etc/config/hapt`. At minimum the `host` option
