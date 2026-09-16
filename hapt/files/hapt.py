@@ -217,19 +217,18 @@ class WirelessDevicesTracker:
 		self.dnsmasq_leasefile = dnsmasq_config['leasefile'] if 'leasefile' in dnsmasq_config else '/tmp/dhcp.leases'
 		self.dnsmasq_domain = dnsmasq_config['domain'] if 'domain' in dnsmasq_config else None
 
-	def call_home_assistant(self, mac, consider_home):
+	def call_home_assistant(self, mac, home):
 		ip, name = get_lease_details(self.dnsmasq_leasefile, mac)
 		hostname = '%s.%s' % (name, self.dnsmasq_domain) if self.dnsmasq_domain and name else name
 		dev_id = name if name else mac.replace(':', '_')
 		if 'device_id_prefix' in self.config:
 			dev_id = '%s_%s' % (self.config['device_id_prefix'], dev_id)
 
-		url = '%s/api/services/device_tracker/see' % self.config['host']
+		url = '%s/api/services/input_boolean/%s' % (self.config['host'], ('turn_on' if home else 'turn_off'))
 		headers = {'Authorization': 'Bearer %s' % self.config['token'], 'Content-Type': 'application/json'}
-		message = {'mac': mac, 'dev_id': dev_id, 'source_type': 'router', 'consider_home': consider_home}
-		if hostname:
-			message['host_name'] = hostname
-		print("Calling Home Assistant for device %s (id %s, hostname %s) with home time of %d" % (mac, dev_id, hostname, consider_home))
+		entity_id = 'input_boolean.hapt_' + (hostname if hostname else mac).replace(':', '_').replace('.', '_')
+		message = {'entity_id': entity_id}
+		print("Calling Home Assistant for device %s (id %s, hostname %s) with entity ID %s and home status %s" % (mac, dev_id, hostname, entity_id, home))
 
 		r = requests.post(url, headers=headers, data=json.dumps(message))
 		if r.status_code != 200:
@@ -249,7 +248,7 @@ class WirelessDevicesTracker:
 			self.clients[mac] = set()
 		self.clients[mac].add(interface)
 		print("Connect of %s on %s, now connected to: %s" % (mac, interface, ", ".join(self.clients[mac])))
-		self.call_home_assistant(mac, int(self.config['consider_home_connect']))
+		self.call_home_assistant(mac, True)
 
 	def on_disconnect(self, interface, mac):
 		if 'track_mac_address' in self.config and mac not in self.config['track_mac_address']:
@@ -258,7 +257,7 @@ class WirelessDevicesTracker:
 		print("Disconnect of %s on %s, now connected to: %s" % (mac, interface, ", ".join(self.clients[mac])))
 		if len(self.clients[mac]) == 0:
 			print("Final disconnect, notifying Home Assistant")
-			self.call_home_assistant(mac, int(self.config['consider_home_disconnect']))
+			self.call_home_assistant(mac, False)
 
 	def oneshot(self):
 		configured_interfaces = self.config.get('wifi_interfaces', None)
