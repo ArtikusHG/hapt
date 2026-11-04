@@ -60,6 +60,8 @@ def ubus_call(path, method, message=None):
 	else:
 		command = "ubus call %s %s" % (path, method)
 	response = subprocess(command)
+	if not response.strip():
+		return {}  
 	try:
 		return json.loads(response)
 	except ValueError:
@@ -74,6 +76,8 @@ def curl_call(path, headers, payload):
 
 def get_config(config, section):
 	config = ubus_call('uci', 'get', {'config': config, 'type': section})
+	if not config or not config.get('values'):
+		return {}
 	return next(iter(config['values'].values()))
 
 def get_connected_clients(interface):
