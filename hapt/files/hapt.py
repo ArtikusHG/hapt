@@ -1,6 +1,6 @@
 #!/usr/bin/micropython
 
-# Dependencies: micropython, micropython-lib (for requests module), micropython-lib-unix or micropython-lib-unix-src (for os, signal module)
+# Dependencies: micropython, micropython-lib-unix or micropython-lib-unix-src (for os, signal module)
 
 # micropython-lib-unix installs its modules into a unix subfolder, but the modules expect to be able to find
 import sys
@@ -12,7 +12,6 @@ import socket
 import struct
 import time
 import ujson as json  # use built-in module instead of the library module, which is buggy
-import urequests as requests  # not yet stripped of its u prefix in OpenWRT's micropython-lib version
 from unix import signal
 from unix import os
 
@@ -61,17 +60,16 @@ def ubus_call(path, method, message=None):
 		command = "ubus call %s %s" % (path, method)
 	response = subprocess(command)
 	if not response.strip():
-		return {}  
+		return {}
 	try:
 		return json.loads(response)
 	except ValueError:
 		raise ValueError("Failed to parse response of command '%s' as JSON: '%s'" % (command, response))
 
-def curl_call(path, headers, payload):
-	# ussl borks on my SSL certificate
-	command = "curl -sf '%s' -X POST --data-binary '%s' " % (path, payload)
+def send_request(path, headers, payload):
+	command = "wget -q -O - '%s' --post-data='%s' " % (path, payload)
 	for key, value in headers.items():
-		command += "-H '%s: %s' " % (key, value)
+		command += "--header='%s: %s' " % (key, value)
 	return subprocess(command)
 
 def get_config(config, section):
@@ -234,9 +232,10 @@ class WirelessDevicesTracker:
 		message = {'entity_id': entity_id}
 		print("Calling Home Assistant for device %s (id %s, hostname %s) with entity ID %s and home status %s" % (mac, dev_id, hostname, entity_id, home))
 
-		r = requests.post(url, headers=headers, data=json.dumps(message))
-		if r.status_code != 200:
-			print("Calling Home Assistant failed with status code %d and response '%s'" % (r.status_code, r.text))
+		send_request(url, headers, json.dumps(message))
+		#r = requests.post(url, headers=headers, data=json.dumps(message))
+		#if r.status_code != 200:
+		#	print("Calling Home Assistant failed with status code %d and response '%s'" % (r.status_code, r.text))
 
 	def handle_message(self, interface, message):
 		components = message[message.find('>')+1:].split(' ')
